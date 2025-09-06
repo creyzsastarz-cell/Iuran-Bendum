@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catatan Iuran Bendum</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f6f9; }
+  select, input[type="text"], button { padding: 8px; margin-right: 10px; margin-top: 5px; }
+  button { background-color: #2c3e50; color: white; border: none; cursor: pointer; }
+  button:hover { background-color: #1a252f; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+  th { background-color: #2c3e50; color: white; }
+  tr:nth-child(even) { background-color: #f9f9f9; }
+
+  /* Kolom checkbox rapi */
+  th.sudahBayar, td.sudahBayar {
+    width: 100px;
+    text-align: center;
+  }
+  td.sudahBayar input[type="checkbox"] {
+    transform: scale(1.2);
+  }
+
+  /* Table responsive */
+  .table-container { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h2>DAFTAR IURAN ACARA HMPS SI</h2>
+
+<label for="pilihAcara">Pilih Acara:</label>
+<select id="pilihAcara" onchange="tampilAcaraTerpilih()">
+  <option value="">-- Pilih acara --</option>
+</select>
+<br>
+
+<label for="namaAcara">Nama Acara Baru:</label>
+<input type="text" id="namaAcara" placeholder="Masukkan nama acara">
+<button onclick="buatAcaraBaru()">Buat / Simpan Acara</button>
+
+<p id="tampilAcara" style="margin-top: 10px; font-weight: bold;"></p>
+
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Nama Peserta</th>
+        <th class="sudahBayar">Sudah Bayar</th>
+      </tr>
+    </thead>
+    <tbody id="tabelPeserta"></tbody>
+  </table>
+</div>
+
+<!-- Firebase SDK compat stabil 9.22.1 -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBwU3TJ_9TfNT1wBs6taFsGtfGJ0iRyAFc",
+    authDomain: "cha-project-f8997.firebaseapp.com",
+    projectId: "cha-project-f8997",
+    storageBucket: "cha-project-f8997.firebasestorage.app",
+    messagingSenderId: "1002188011351",
+    appId: "1:1002188011351:web:bb8aa1598520a3b262b012"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const pesertaList = [
+    "Muhammad Zaki Fauzi","Eva Rahmayanti Br Saragih","Annisa Aulia Husna","Afdal Ramadhani",
+    "Nindya Dwi Putri","Yola Sri Fadhila","Nadila Eka Syafitri","Hafis Syaifullah",
+    "Rahma Nadya","Tomi Marta Anggeni","M hafizul Ikhsan","Darus Jamhari",
+    "Annisa Jamatus sa'ada","Najla Sahida Samsu","Ariel Al-Muqsith","Ibnu Roofi",
+    "Aristo Brata","Alyni","Camello Kaesa Athahillah","Hafif Novfitra",
+    "Nikola Hijrian Putra","Rahmatul Istiqomah","Ahmad Jailani","Muhammad Haris",
+    "Nanda Rizalfi","Ramanda","Reginaldo Almubijuknis","Rianty Adli",
+    "Arifa Fauzana","Andre","Anisatun Fauziah","M Nur Farhaz Ali",
+    "Mull Yandi","Nova Amelia","Fadillah Husnah","Stevanie","Putri Salma","Yulia Ningsih"
+  ];
+
+  const tabelBody = document.getElementById("tabelPeserta");
+  const pilihAcara = document.getElementById("pilihAcara");
+
+  // Render table peserta
+  function renderTabel(pesertaData) {
+    tabelBody.innerHTML = "";
+    pesertaData.forEach((p,index) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${index+1}</td>
+        <td>${p.nama}</td>
+        <td class="sudahBayar">
+          <input type="checkbox" ${p.sudahBayar ? "checked" : ""} onchange="updateBayar(${index}, this.checked)">
+        </td>
+      `;
+      tabelBody.appendChild(row);
+    });
+  }
+
+  // Update checkbox
+  function updateBayar(index,status) {
+    const namaAcara = pilihAcara.value;
+    if(!namaAcara) return alert("Pilih acara dulu!");
+    const docRef = db.collection("acara").doc(namaAcara.replace(/\s/g,"_"));
+    docRef.get().then(docSnap => {
+      if(docSnap.exists) {
+        const data = docSnap.data();
+        data.peserta[index].sudahBayar = status;
+        docRef.update({ peserta: data.peserta });
+      }
+    }).catch(console.error);
+  }
+
+  // Buat acara baru
+  function buatAcaraBaru() {
+    const namaAcara = document.getElementById("namaAcara").value.trim();
+    if(!namaAcara) return alert("Masukkan nama acara!");
+    const pesertaData = pesertaList.map(nama => ({nama, sudahBayar:false}));
+
+    db.collection("acara").doc(namaAcara.replace(/\s/g,"_")).set({
+      namaAcara,
+      peserta: pesertaData
+    }).then(() => {
+      alert("Acara berhasil dibuat!");
+      document.getElementById("tampilAcara").innerText = "Acara: "+namaAcara;
+      renderTabel(pesertaData);
+      loadDropdownAcara(namaAcara);
+    }).catch(console.error);
+  }
+
+  // Tampilkan acara terpilih
+  function tampilAcaraTerpilih() {
+    const namaAcara = pilihAcara.value;
+    if(!namaAcara) return;
+    const docRef = db.collection("acara").doc(namaAcara.replace(/\s/g,"_"));
+    docRef.get().then(docSnap => {
+      if(docSnap.exists) {
+        const data = docSnap.data();
+        document.getElementById("tampilAcara").innerText = "Acara: "+data.namaAcara;
+        renderTabel(data.peserta);
+      }
+    }).catch(console.error);
+  }
+
+  // Load dropdown
+  function loadDropdownAcara(selectedAcara = "") {
+    pilihAcara.innerHTML = '<option value="">-- Pilih acara --</option>';
+    db.collection("acara").get().then(snapshot => {
+      let first = selectedAcara;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const option = document.createElement("option");
+        option.value = data.namaAcara;
+        option.textContent = data.namaAcara;
+        pilihAcara.appendChild(option);
+        if(!first) first = data.namaAcara;
+      });
+      if(first) {
+        pilihAcara.value = first;
+        tampilAcaraTerpilih();
+      }
+    });
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    loadDropdownAcara();
+  });
+</script>
+
+</body>
+</html>
